@@ -1,0 +1,20 @@
+{
+  "name": "mould-king-motor-control",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node -r ts-node/register src/start.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/async-lock": "^1.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@abandonware/noble": "^1.9.2-24",
+    "async-lock": "^1.4.1"
+  }
+}
