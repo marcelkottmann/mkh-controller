@@ -4,17 +4,26 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node -r ts-node/register src/start.ts"
+    "start": "node -r ts-node/register src/test-mould-king.ts",
+    "plot": "node -r ts-node/register src/plotter/plot.ts"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/async-lock": "^1.4.2",
+    "@types/svg-parser": "^2.0.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   },
   "dependencies": {
     "@abandonware/noble": "^1.9.2-24",
-    "async-lock": "^1.4.1"
+    "@svgdotjs/svg.js": "^3.2.0",
+    "@types/svgdom": "^0.1.2",
+    "async-lock": "^1.4.1",
+    "points-on-path": "^0.2.1",
+    "svg-flatten": "^1.0.1",
+    "svg-parser": "^2.0.4",
+    "svg-path-commander": "^2.0.9",
+    "svgdom": "^0.1.19"
   }
 }

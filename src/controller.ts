@@ -2,8 +2,10 @@ import noble from "@abandonware/noble";
 import { ConnectState, DataListener } from "./start";
 import { sendMessage } from "./communication";
 import { bitmask, delay, hex } from "./util";
+import { lock } from "./lock";
 
 const STEP_FACTOR = 10000;
+export const MAX_SPEED = 0x7fff;
 
 export interface SpeedAndPosition {
   speed: number;
@@ -31,13 +33,13 @@ export async function createController(
   await sendMessage(characteristic, "T00EW");
   await sendMessage(characteristic, "T01F1W");
 
-  const backgroundJob = async () => {
-    while (connectState.connected) {
-      await sendMessage(characteristic, "T00CW");
-      await delay(2000);
-    }
-  };
-  backgroundJob();
+  // const backgroundJob = async () => {
+  //   while (connectState.connected) {
+  //     await sendMessage(characteristic, "T00CW");
+  //     await delay(2000);
+  //   }
+  // };
+  // backgroundJob();
 
   return new MKH40Controller(characteristic, registerDataListener);
 }
@@ -60,13 +62,27 @@ export class MKH40Controller {
     registerDataListener: (listener: DataListener) => void
   ) {
     registerDataListener((data, isNotification) => {
-      const message = data.toString("ascii");
-      console.log(`notification:${isNotification} => ${message}`);
-      for (let i = this.listeners.length - 1; i >= 0; i--) {
-        const listener = this.listeners[i];
-        if (message.startsWith(listener.message)) {
-          this.listeners.splice(i, 1);
-          listener.callback(message);
+      const received = data.toString("ascii");
+
+      const messages = received
+        .split("W")
+        .filter(Boolean)
+        .map((m) => m + "W");
+
+      for (const message of messages) {
+        console.log(`notification:${isNotification} => ${message}`);
+
+        let found = false;
+        for (let i = this.listeners.length - 1; i >= 0; i--) {
+          const listener = this.listeners[i];
+          if (message.startsWith(listener.message)) {
+            found = true;
+            this.listeners.splice(i, 1);
+            listener.callback(message);
+          }
+        }
+        if (!found) {
+          console.log(`=> No listener found for message ${message}.`);
         }
       }
     });
@@ -117,10 +133,12 @@ export class MKH40Controller {
     negativeLimit *= STEP_FACTOR;
     positiveLimit *= STEP_FACTOR;
 
-    const message = `T149${bitmask(motor, 2)}${positiveLimit >= 0 ? "+" : "-"}${hex(
-      positiveLimit,
+    const message = `T149${bitmask(motor, 2)}${
+      positiveLimit >= 0 ? "+" : "-"
+    }${hex(positiveLimit, 8)}${negativeLimit >= 0 ? "+" : "-"}${hex(
+      negativeLimit,
       8
-    )}${negativeLimit >= 0 ? "+" : "-"}${hex(negativeLimit, 8)}W`;
+    )}W`;
     return sendMessage(this.characteristic, message);
   }
 
@@ -177,21 +195,41 @@ export class MKH40Controller {
   ): Promise<void> {
     await this.ready;
 
-    const message = `T303${this.writeSpeedAndPositionToMessage(
-      motorA
-    )}${this.writeSpeedAndPositionToMessage(
-      motorB
-    )}${this.writeSpeedAndPositionToMessage(
-      motorC
-    )}${this.writeSpeedAndPositionToMessage(motorD)}W`;
+    await lock.acquire(`drive`, async () => {
+      const message = `T303${this.writeSpeedAndPositionToMessage(
+        motorA
+      )}${this.writeSpeedAndPositionToMessage(
+        motorB
+      )}${this.writeSpeedAndPositionToMessage(
+        motorC
+      )}${this.writeSpeedAndPositionToMessage(motorD)}W`;
 
-    const ret: Promise<void> = new Promise((resolve) => {
-      this.addListener("T027300W", () => resolve());
+      // const ret: Promise<void> = new Promise((resolve) => {
+      //   this.addListener("T027300W", () => resolve());
+      // });
+
+      await sendMessage(this.characteristic, message);
+      // await ret;
+
+      await this.pollForMotorToReachPosition(Motor.A, motorA);
+      await this.pollForMotorToReachPosition(Motor.B, motorB);
+      await this.pollForMotorToReachPosition(Motor.C, motorC);
+      await this.pollForMotorToReachPosition(Motor.D, motorD);
     });
+  }
 
-    await sendMessage(this.characteristic, message);
-
-    return ret;
+  private async pollForMotorToReachPosition(
+    motor: Motor,
+    sp: SpeedAndPosition
+  ) {
+    if (sp.speed > 0) {
+      const targetPos = Math.round(sp.position);
+      let cp;
+      do {
+        cp = await this.getCurrentPosition(motor);
+        console.log(`Wait for motor ${motor} to reach position ${targetPos}`);
+      } while (cp > targetPos + 1 || cp < targetPos - 1);
+    }
   }
 
   public async resetMotorPosition(...motor: Motor[]) {
@@ -207,18 +245,26 @@ export class MKH40Controller {
   public async getCurrentPosition(motor: Motor): Promise<number> {
     await this.ready;
 
-    const motorAPrefix = `T0A7A${hex(motor, 1)}`;
-    const ret: Promise<number> = new Promise((resolve) => {
-      this.addListener(motorAPrefix, (message) => {
-        const position = Math.round(
-          Number.parseInt(message.substring(6), 16) / STEP_FACTOR
-        );
-        resolve(position);
+    let ret: Promise<number> | undefined = undefined;
+
+    const motorPrefix = `T0A7A${hex(motor, 1)}`;
+    await lock.acquire(`cp_${motorPrefix}`, async () => {
+      ret = new Promise((resolve) => {
+        this.addListener(motorPrefix, (message) => {
+          const position = Math.round(
+            Number.parseInt(message.substring(6), 16) / STEP_FACTOR
+          );
+          resolve(position);
+        });
       });
+
+      await sendMessage(this.characteristic, `T02A${bitmask(motor, 2)}W`);
+      await ret;
     });
 
-    await sendMessage(this.characteristic, `T02A${bitmask(motor, 2)}W`);
-
+    if (!ret) {
+      throw Error("Illegal state");
+    }
     return ret;
   }
 }

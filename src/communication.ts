@@ -1,7 +1,6 @@
 import noble from "@abandonware/noble";
-import AsyncLock from "async-lock";
+import { lock } from "./lock";
 
-const lock = new AsyncLock();
 
 export async function sendMessage(
   characteristic: noble.Characteristic,
