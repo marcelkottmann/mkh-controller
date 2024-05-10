@@ -23,8 +23,9 @@ async function driveToPoint(
     let speedX = MAX_SPEED / 2;
     let speedY = MAX_SPEED / 2;
 
-    const previousX = await controller.getCurrentPosition(Motor.B);
-    const previousY = -(await controller.getCurrentPosition(Motor.A));
+    const pos = await controller.getCurrentPositions(Motor.B, Motor.A);
+    const previousX = pos[0];
+    const previousY = -pos[1];
 
     const deltaX = Math.abs(x - previousX);
     const deltaY = Math.abs(y - previousY);
@@ -68,10 +69,12 @@ async function moveMotorRelative(
   motor: Motor,
   delta: number
 ) {
-  const posA = await controller.getCurrentPosition(Motor.A);
-  const posB = await controller.getCurrentPosition(Motor.B);
-  const posC = await controller.getCurrentPosition(Motor.C);
-  const posD = await controller.getCurrentPosition(Motor.D);
+  const [posA, posB, posC, posD] = await controller.getCurrentPositions(
+    Motor.A,
+    Motor.B,
+    Motor.C,
+    Motor.D
+  );
 
   const speed = MAX_SPEED / 8;
   await controller.driveMotorToPosition(
@@ -99,10 +102,12 @@ async function moveMotorAbsolute(
   motor: Motor,
   pos: number
 ) {
-  const posA = await controller.getCurrentPosition(Motor.A);
-  const posB = await controller.getCurrentPosition(Motor.B);
-  const posC = await controller.getCurrentPosition(Motor.C);
-  const posD = await controller.getCurrentPosition(Motor.D);
+  const [posA, posB, posC, posD] = await controller.getCurrentPositions(
+    Motor.A,
+    Motor.B,
+    Motor.C,
+    Motor.D
+  );
 
   const speed = MAX_SPEED / 8;
   await controller.driveMotorToPosition(
@@ -160,10 +165,12 @@ async function resetMotorPositions(controller: MKH40Controller | undefined) {
 
 async function printMotorPositions(controller: MKH40Controller | undefined) {
   if (controller) {
-    const posA = await controller.getCurrentPosition(Motor.A);
-    const posB = await controller.getCurrentPosition(Motor.B);
-    const posC = await controller.getCurrentPosition(Motor.C);
-    const posD = await controller.getCurrentPosition(Motor.D);
+    const [posA, posB, posC, posD] = await controller.getCurrentPositions(
+      Motor.A,
+      Motor.B,
+      Motor.C,
+      Motor.D
+    );
     console.log(posA, posB, posC, posD);
   } else {
     await delay(500);
@@ -231,7 +238,9 @@ async function plot(controller: MKH40Controller | undefined, file: string) {
         .transform({ scale: [1, 10], origin: [0, 0] }).segments
   );
 
-  await fs.writeFile("./out.svg",`<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+  await fs.writeFile(
+    "./out.svg",
+    `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
   <!-- Created with Inkscape (http://www.inkscape.org/) -->
   
   <svg
@@ -246,7 +255,8 @@ async function plot(controller: MKH40Controller | undefined, file: string) {
      xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
      xmlns="http://www.w3.org/2000/svg"
      xmlns:svg="http://www.w3.org/2000/svg">
-  ${paths.map(path=>`<path d="${SVGPathCommander.pathToString(path)}"/>`)}`);
+  ${paths.map((path) => `<path d="${SVGPathCommander.pathToString(path)}"/>`)}`
+  );
   // process.exit() as any;
   // console.log(flattened);
 

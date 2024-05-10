@@ -1,3 +1,5 @@
+import { Motor } from "./controller";
+
 export function createIsResolved(p: Promise<any>): () => boolean {
   let completed = false;
 
@@ -20,6 +22,10 @@ export function hex(num: number, padding: number) {
   return num.toString(16).toUpperCase().padStart(padding, "0");
 }
 
-export function bitmask(motor: number, padding: number) {
-  return `${1 << (motor - 1)}`.padStart(padding, "0");
+export function bitmask(motors: Motor[], padding: number) {
+  let mask = 0;
+  for (const motor of motors) {
+    mask |= 1 << (motor - 1);
+  }
+  return mask.toString(16).padStart(padding, "0");
 }

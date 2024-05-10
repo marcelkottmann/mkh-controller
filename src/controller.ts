@@ -133,7 +133,7 @@ export class MKH40Controller {
     negativeLimit *= STEP_FACTOR;
     positiveLimit *= STEP_FACTOR;
 
-    const message = `T149${bitmask(motor, 2)}${
+    const message = `T149${bitmask([motor], 2)}${
       positiveLimit >= 0 ? "+" : "-"
     }${hex(positiveLimit, 8)}${negativeLimit >= 0 ? "+" : "-"}${hex(
       negativeLimit,
@@ -211,25 +211,31 @@ export class MKH40Controller {
       await sendMessage(this.characteristic, message);
       // await ret;
 
-      await this.pollForMotorToReachPosition(Motor.A, motorA);
-      await this.pollForMotorToReachPosition(Motor.B, motorB);
-      await this.pollForMotorToReachPosition(Motor.C, motorC);
-      await this.pollForMotorToReachPosition(Motor.D, motorD);
+      await this.pollForMotorToReachPosition([
+        { motor: Motor.A, sp: motorA },
+        { motor: Motor.B, sp: motorB },
+        { motor: Motor.C, sp: motorC },
+        { motor: Motor.D, sp: motorD },
+      ]);
     });
   }
 
   private async pollForMotorToReachPosition(
-    motor: Motor,
-    sp: SpeedAndPosition
+    expected: { motor: Motor; sp: SpeedAndPosition }[]
   ) {
-    if (sp.speed > 0) {
-      const targetPos = Math.round(sp.position);
-      let cp;
-      do {
-        cp = await this.getCurrentPosition(motor);
-        console.log(`Wait for motor ${motor} to reach position ${targetPos}`);
-      } while (cp > targetPos + 1 || cp < targetPos - 1);
-    }
+    expected = expected.filter((e) => e.sp.speed > 0);
+    do {
+      const targetPos = expected.map((e) => Math.round(e.sp.position));
+      const motors = expected.map((e) => e.motor);
+      console.log(`Wait for motor ${motors} to reach position ${targetPos}`);
+
+      const cp = await this.getCurrentPositions(...motors);
+      for (let i = expected.length - 1; i >= 0; i--) {
+        if (cp[i] <= targetPos[i] + 1 && cp[i] >= targetPos[i] - 1) {
+          expected.splice(i, 1);
+        }
+      }
+    } while (expected.length > 0);
   }
 
   public async resetMotorPosition(...motor: Motor[]) {
@@ -237,34 +243,33 @@ export class MKH40Controller {
 
     return Promise.all(
       motor.map((m) =>
-        sendMessage(this.characteristic, `T028${bitmask(m, 2)}W`)
+        sendMessage(this.characteristic, `T028${bitmask([m], 2)}W`)
       )
     );
   }
 
-  public async getCurrentPosition(motor: Motor): Promise<number> {
+  public async getCurrentPositions(...motors: Motor[]): Promise<number[]> {
     await this.ready;
 
-    let ret: Promise<number> | undefined = undefined;
+    const motorPrefixes = motors.map((motor) => `T0A7A${hex(motor, 1)}`);
+    return await lock.acquire(
+      motorPrefixes.map((motorPrefix) => `cp_${motorPrefix}`),
+      async () => {
+        const ret: Promise<number>[] = motorPrefixes.map(
+          (motorPrefix) =>
+            new Promise((resolve) => {
+              this.addListener(motorPrefix, (message) => {
+                const position = Math.round(
+                  Number.parseInt(message.substring(6), 16) / STEP_FACTOR
+                );
+                resolve(position);
+              });
+            })
+        );
 
-    const motorPrefix = `T0A7A${hex(motor, 1)}`;
-    await lock.acquire(`cp_${motorPrefix}`, async () => {
-      ret = new Promise((resolve) => {
-        this.addListener(motorPrefix, (message) => {
-          const position = Math.round(
-            Number.parseInt(message.substring(6), 16) / STEP_FACTOR
-          );
-          resolve(position);
-        });
-      });
-
-      await sendMessage(this.characteristic, `T02A${bitmask(motor, 2)}W`);
-      await ret;
-    });
-
-    if (!ret) {
-      throw Error("Illegal state");
-    }
-    return ret;
+        await sendMessage(this.characteristic, `T02A${bitmask(motors, 2)}W`);
+        return Promise.all(ret);
+      }
+    );
   }
 }
