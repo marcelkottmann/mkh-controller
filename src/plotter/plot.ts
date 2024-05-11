@@ -17,11 +17,14 @@ async function driveToPoint(
   x: number,
   y: number
 ) {
+  x = Math.round(x);
+  y = Math.round(y);
+
   console.log("Plot", x, -y);
 
   if (controller) {
-    let speedX = MAX_SPEED / 2;
-    let speedY = MAX_SPEED / 2;
+    let speedX = MAX_SPEED;
+    let speedY = MAX_SPEED;
 
     const pos = await controller.getCurrentPositions(Motor.B, Motor.A);
     const previousX = pos[0];
@@ -29,6 +32,11 @@ async function driveToPoint(
 
     const deltaX = Math.abs(x - previousX);
     const deltaY = Math.abs(y - previousY);
+
+    if (deltaX === 0 && deltaY === 0) {
+      // we are already at requested point
+      return;
+    }
 
     if (deltaX > deltaY) {
       speedY = (deltaY * speedY) / deltaX;
@@ -76,7 +84,7 @@ async function moveMotorRelative(
     Motor.D
   );
 
-  const speed = MAX_SPEED / 8;
+  const speed = MAX_SPEED / 2;
   await controller.driveMotorToPosition(
     {
       position: posA + (motor === Motor.A ? delta : 0),
@@ -276,22 +284,20 @@ async function plot(controller: MKH40Controller | undefined, file: string) {
     const sections = Math.ceil(plotLength / MAX_PLOT_LENGTH);
 
     const points = pointsOnPath(SVGPathCommander.pathToString(path));
-    for (let i = 0; i < points[0].length; i++) {
-      if (i === 1) {
-        await moveDown(controller);
+    for (let segment = 0; segment < points.length; segment++) {
+      for (let i = 0; i < points[segment].length; i++) {
+        if (i === 1) {
+          await moveDown(controller);
+        }
+        const plotPoint = transformToPlotCoord(
+          points[segment][i][0],
+          points[segment][i][1],
+          overallBBox
+        );
+        await driveToPoint(controller, plotPoint.x, plotPoint.y);
       }
-      // const point = SVGPathCommander.getPointAtLength(
-      //   path,
-      //   (pathLength * i) / sections
-      // );
-      const plotPoint = transformToPlotCoord(
-        points[0][i][0],
-        points[0][i][1],
-        overallBBox
-      );
-      await driveToPoint(controller, plotPoint.x, plotPoint.y);
+      await moveUp(controller);
     }
-    await moveUp(controller);
   }
   await driveToPoint(controller, 0, 0);
 }

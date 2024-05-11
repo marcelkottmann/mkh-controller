@@ -204,12 +204,12 @@ export class MKH40Controller {
         motorC
       )}${this.writeSpeedAndPositionToMessage(motorD)}W`;
 
-      // const ret: Promise<void> = new Promise((resolve) => {
-      //   this.addListener("T027300W", () => resolve());
-      // });
+      const ret: Promise<void> = new Promise((resolve) => {
+        this.addListener("T027300W", () => resolve());
+      });
 
       await sendMessage(this.characteristic, message);
-      // await ret;
+      await ret;
 
       await this.pollForMotorToReachPosition([
         { motor: Motor.A, sp: motorA },

@@ -19,6 +19,13 @@ export function hex(num: number, padding: number) {
   if (num < 0) {
     throw Error(`Cannot convert negative number to hex: ${num}`);
   }
+  if (Number.isNaN(num)) {
+    throw Error(`Cannot convert NAN to hex: ${num}`);
+  }
+  if (!Number.isFinite(num)) {
+    throw Error(`Cannot convert infinite to hex: ${num}`);
+  }
+
   return num.toString(16).toUpperCase().padStart(padding, "0");
 }
 
