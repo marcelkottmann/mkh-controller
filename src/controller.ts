@@ -7,6 +7,11 @@ import { lock } from "./lock";
 const STEP_FACTOR = 10000;
 export const MAX_SPEED = 0x7fff;
 
+export interface MotorSpeedAndPosition {
+  motor: Motor;
+  target: SpeedAndPosition;
+}
+
 export interface SpeedAndPosition {
   speed: number;
   position: number;
@@ -174,11 +179,11 @@ export class MKH40Controller {
     }
   }
 
-  private writeSpeedAndPositionToMessage(motor: SpeedAndPosition) {
-    this.validateSpeedAndPosition(motor);
+  private writeSpeedAndPositionToMessage(target: SpeedAndPosition) {
+    this.validateSpeedAndPosition(target);
 
-    const targetPosition = Math.round(motor.position * STEP_FACTOR);
-    let speed = Math.round(motor.speed);
+    const targetPosition = Math.round(target.position * STEP_FACTOR);
+    let speed = Math.round(target.speed);
 
     if (targetPosition >= 0) {
       speed += 0x8000;
@@ -187,13 +192,28 @@ export class MKH40Controller {
     return hex(speed, 4) + hex(Math.abs(targetPosition), 8);
   }
 
+  private getTarget(
+    motor: Motor,
+    targets: MotorSpeedAndPosition[]
+  ): SpeedAndPosition {
+    return (
+      targets.find((t) => t.motor === motor)?.target || {
+        position: 0,
+        speed: 0,
+      }
+    );
+  }
+
   public async driveMotorToPosition(
-    motorA: SpeedAndPosition,
-    motorB: SpeedAndPosition = { speed: 0, position: 0 },
-    motorC: SpeedAndPosition = { speed: 0, position: 0 },
-    motorD: SpeedAndPosition = { speed: 0, position: 0 }
+    targets: MotorSpeedAndPosition[],
+    options= { pollForMotorToReachPosition: false }
   ): Promise<void> {
     await this.ready;
+
+    const motorA = this.getTarget(Motor.A, targets);
+    const motorB = this.getTarget(Motor.B, targets);
+    const motorC = this.getTarget(Motor.C, targets);
+    const motorD = this.getTarget(Motor.D, targets);
 
     await lock.acquire(`drive`, async () => {
       const message = `T303${this.writeSpeedAndPositionToMessage(
@@ -211,12 +231,14 @@ export class MKH40Controller {
       await sendMessage(this.characteristic, message);
       await ret;
 
-      await this.pollForMotorToReachPosition([
-        { motor: Motor.A, sp: motorA },
-        { motor: Motor.B, sp: motorB },
-        { motor: Motor.C, sp: motorC },
-        { motor: Motor.D, sp: motorD },
-      ]);
+      if (options.pollForMotorToReachPosition) {
+        await this.pollForMotorToReachPosition([
+          { motor: Motor.A, sp: motorA },
+          { motor: Motor.B, sp: motorB },
+          { motor: Motor.C, sp: motorC },
+          { motor: Motor.D, sp: motorD },
+        ]);
+      }
     });
   }
 
@@ -232,7 +254,10 @@ export class MKH40Controller {
       const cp = await this.getCurrentPositions(...motors);
       for (let i = expected.length - 1; i >= 0; i--) {
         if (cp[i] <= targetPos[i] + 1 && cp[i] >= targetPos[i] - 1) {
-          expected.splice(i, 1);
+          const reached = expected.splice(i, 1);
+          console.log(
+            `Reached: motor ${reached[0].motor} at position ${cp[i]}`
+          );
         }
       }
     } while (expected.length > 0);

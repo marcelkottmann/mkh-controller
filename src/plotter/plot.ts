@@ -15,10 +15,19 @@ const MAX_PLOT_LENGTH = 50;
 async function driveToPoint(
   controller: MKH40Controller | undefined,
   x: number,
-  y: number
+  y: number,
+  previousX?: number,
+  previousY?: number
 ) {
   x = Math.round(x);
   y = Math.round(y);
+
+  if (previousX) {
+    previousX = Math.round(previousX);
+  }
+  if (previousY) {
+    previousY = Math.round(previousY);
+  }
 
   console.log("Plot", x, -y);
 
@@ -26,9 +35,11 @@ async function driveToPoint(
     let speedX = MAX_SPEED;
     let speedY = MAX_SPEED;
 
-    const pos = await controller.getCurrentPositions(Motor.B, Motor.A);
-    const previousX = pos[0];
-    const previousY = -pos[1];
+    if (typeof previousX === "undefined" || typeof previousY === "undefined") {
+      const pos = await controller.getCurrentPositions(Motor.B, Motor.A);
+      previousX = pos[0];
+      previousY = -pos[1];
+    }
 
     const deltaX = Math.abs(x - previousX);
     const deltaY = Math.abs(y - previousY);
@@ -44,10 +55,10 @@ async function driveToPoint(
       speedX = (deltaX * speedX) / deltaY;
     }
 
-    await controller.driveMotorToPosition(
-      { position: -y, speed: speedY },
-      { position: x, speed: speedX }
-    );
+    await controller.driveMotorToPosition([
+      { motor: Motor.A, target: { position: -y, speed: speedY } },
+      { motor: Motor.B, target: { position: x, speed: speedX } },
+    ]);
   } else {
     await delay(500);
   }
@@ -66,7 +77,7 @@ async function moveUp(controller: MKH40Controller | undefined) {
 async function moveDown(controller: MKH40Controller | undefined) {
   console.log("Move down");
   if (controller) {
-    await moveMotorAbsolute(controller, Motor.C, -40);
+    await moveMotorAbsolute(controller, Motor.C, -50);
   } else {
     await delay(500);
   }
@@ -85,24 +96,36 @@ async function moveMotorRelative(
   );
 
   const speed = MAX_SPEED / 2;
-  await controller.driveMotorToPosition(
+  await controller.driveMotorToPosition([
     {
-      position: posA + (motor === Motor.A ? delta : 0),
-      speed: motor === Motor.A ? speed : 0,
+      motor: Motor.A,
+      target: {
+        position: posA + (motor === Motor.A ? delta : 0),
+        speed: motor === Motor.A ? speed : 0,
+      },
     },
     {
-      position: posB + (motor === Motor.B ? delta : 0),
-      speed: motor === Motor.B ? speed : 0,
+      motor: Motor.B,
+      target: {
+        position: posB + (motor === Motor.B ? delta : 0),
+        speed: motor === Motor.B ? speed : 0,
+      },
     },
     {
-      position: posC + (motor === Motor.C ? delta : 0),
-      speed: motor === Motor.C ? speed : 0,
+      motor: Motor.C,
+      target: {
+        position: posC + (motor === Motor.C ? delta : 0),
+        speed: motor === Motor.C ? speed : 0,
+      },
     },
     {
-      position: posD + (motor === Motor.D ? delta : 0),
-      speed: motor === Motor.D ? speed : 0,
-    }
-  );
+      motor: Motor.D,
+      target: {
+        position: posD + (motor === Motor.D ? delta : 0),
+        speed: motor === Motor.D ? speed : 0,
+      },
+    },
+  ]);
 }
 
 async function moveMotorAbsolute(
@@ -117,25 +140,37 @@ async function moveMotorAbsolute(
     Motor.D
   );
 
-  const speed = MAX_SPEED / 8;
-  await controller.driveMotorToPosition(
+  const speed = MAX_SPEED / 2;
+  await controller.driveMotorToPosition([
     {
-      position: motor === Motor.A ? pos : posA,
-      speed: motor === Motor.A ? speed : 0,
+      motor: Motor.A,
+      target: {
+        position: motor === Motor.A ? pos : posA,
+        speed: motor === Motor.A ? speed : 0,
+      },
     },
     {
-      position: motor === Motor.B ? pos : posB,
-      speed: motor === Motor.B ? speed : 0,
+      motor: Motor.B,
+      target: {
+        position: motor === Motor.B ? pos : posB,
+        speed: motor === Motor.B ? speed : 0,
+      },
     },
     {
-      position: motor === Motor.C ? pos : posC,
-      speed: motor === Motor.C ? speed : 0,
+      motor: Motor.C,
+      target: {
+        position: motor === Motor.C ? pos : posC,
+        speed: motor === Motor.C ? speed : 0,
+      },
     },
     {
-      position: motor === Motor.D ? pos : posD,
-      speed: motor === Motor.D ? speed : 0,
-    }
-  );
+      motor: Motor.D,
+      target: {
+        position: motor === Motor.D ? pos : posD,
+        speed: motor === Motor.D ? speed : 0,
+      },
+    },
+  ]);
 }
 
 async function moveMotorForward(
@@ -144,7 +179,7 @@ async function moveMotorForward(
 ) {
   console.log(`Motor ${motor} - forward`);
   if (controller) {
-    await moveMotorRelative(controller, motor, 20);
+    await moveMotorRelative(controller, motor, 17);
   } else {
     await delay(500);
   }
@@ -156,7 +191,7 @@ async function moveMotorBackward(
 ) {
   console.log(`Motor ${motor} - backward`);
   if (controller) {
-    await moveMotorRelative(controller, motor, -20);
+    await moveMotorRelative(controller, motor, -17);
   } else {
     await delay(500);
   }
@@ -192,6 +227,8 @@ function calibrate(controller: MKH40Controller | undefined): Promise<void> {
   console.log(`Type 'e' to exit calibration.`);
   console.log(`Type 'c' to save calibration.`);
   console.log(`Type 'n' to drive to initial pose.`);
+  console.log(`Type 'u' to move pen up.`);
+  console.log(`Type 'd' to move pen down.`);
   console.log(`Type right arrow to switch motors.`);
   console.log(`Type right up/down arrows to move selected motor.`);
   console.log(`Type 'p' to print motor positions.`);
@@ -226,6 +263,10 @@ function calibrate(controller: MKH40Controller | undefined): Promise<void> {
         printMotorPositions(controller);
       } else if (keystroke[0] === "n".charCodeAt(0)) {
         moveUp(controller).then(() => driveToPoint(controller, 0, 0));
+      } else if (keystroke[0] === "u".charCodeAt(0)) {
+        moveUp(controller);
+      } else if (keystroke[0] === "d".charCodeAt(0)) {
+        moveDown(controller);
       }
     });
   });
@@ -277,12 +318,10 @@ async function plot(controller: MKH40Controller | undefined, file: string) {
     throw Error("Cannot determine bounding box");
   }
 
+  let previousX = undefined;
+  let previousY = undefined;
   await moveUp(controller);
   for (const path of paths) {
-    const pathLength = SVGPathCommander.getTotalLength(path);
-    const plotLength = transformLength(pathLength, overallBBox);
-    const sections = Math.ceil(plotLength / MAX_PLOT_LENGTH);
-
     const points = pointsOnPath(SVGPathCommander.pathToString(path));
     for (let segment = 0; segment < points.length; segment++) {
       for (let i = 0; i < points[segment].length; i++) {
@@ -294,12 +333,21 @@ async function plot(controller: MKH40Controller | undefined, file: string) {
           points[segment][i][1],
           overallBBox
         );
-        await driveToPoint(controller, plotPoint.x, plotPoint.y);
+
+        await driveToPoint(
+          controller,
+          plotPoint.x,
+          plotPoint.y,
+          previousX,
+          previousY
+        );
+        previousX = plotPoint.x;
+        previousY = plotPoint.y;
       }
       await moveUp(controller);
     }
   }
-  await driveToPoint(controller, 0, 0);
+  await driveToPoint(controller, 0, 0, previousX, previousY);
 }
 
 const mock = false;
