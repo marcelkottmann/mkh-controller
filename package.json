@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node -r ts-node/register src/test-mould-king.ts",
-    "plot": "node -r ts-node/register src/plotter/plot.ts"
+    "plot": "node -r ts-node/register src/plotter/plot.ts",
+    "robot": "node -r ts-node/register src/robot.ts"
   },
   "author": "",
   "license": "ISC",
@@ -16,7 +17,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-24",
+    "@stoprocent/noble": "1.14.2",
     "@svgdotjs/svg.js": "^3.2.0",
     "@types/svgdom": "^0.1.2",
     "async-lock": "^1.4.1",

@@ -1,5 +1,6 @@
 import { ElementNode } from "svg-parser";
 import SVGPathCommander, { PathArray } from "svg-path-commander";
+import { Path } from "./types";
 
 export interface BoundingBox {
   x: number;
@@ -8,11 +9,11 @@ export interface BoundingBox {
   y2: number;
 }
 
-export function getOverallBBox(paths: PathArray[]): BoundingBox | undefined {
+export function getOverallBBox(paths: Path[]): BoundingBox | undefined {
   let overallBBox: BoundingBox | undefined = undefined;
 
   for (const path of paths) {
-    const pathBBox = SVGPathCommander.getPathBBox(path);
+    const pathBBox = SVGPathCommander.getPathBBox(path.path);
     if (overallBBox) {
       overallBBox = {
         x: Math.min(pathBBox.x, overallBBox.x),

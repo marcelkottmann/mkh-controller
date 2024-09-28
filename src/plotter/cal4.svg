@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="cal4.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.1569609"
+     inkscape:cx="246.7672"
+     inkscape:cy="551.44473"
+     inkscape:window-width="1920"
+     inkscape:window-height="1011"
+     inkscape:window-x="0"
+     inkscape:window-y="32"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="path19651"
+       style="fill:#ffffff;fill-opacity:0.00719072;stroke:#000000;stroke-width:0.0850526"
+       d="M 74.957473,120 A 19.957473,19.957471 0 0 1 55,139.95747 19.957473,19.957471 0 0 1 35.042527,120 19.957473,19.957471 0 0 1 55,100.04252 19.957473,19.957471 0 0 1 74.957473,120 Z" />
+    <path
+       id="path19651-4"
+       style="fill:#ffffff;fill-opacity:0.00719072;stroke:#000000;stroke-width:0.0850526"
+       d="M 74.95747,120 A 19.957473,19.957471 0 0 0 55,100.04253 19.957473,19.957471 0 0 0 35.042526,120 19.957473,19.957471 0 0 0 55,139.95748 19.957473,19.957471 0 0 0 74.95747,120 Z" />
+    <text
+       xml:space="preserve"
+       style="font-size:4.9389px;line-height:125%;font-family:OrachTechDemo1Lttf;-inkscape-font-specification:OrachTechDemo1Lttf;letter-spacing:0px;word-spacing:0px;fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="33.330372"
+       y="87.737892"
+       id="text19655"><tspan
+         sodipodi:role="line"
+         id="tspan19653"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Noto Serif CJK TC';-inkscape-font-specification:'Noto Serif CJK TC';stroke-width:0.264583px"
+         x="33.330372"
+         y="87.737892">Left turn circle</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Noto Serif CJK TC';-inkscape-font-specification:'Noto Serif CJK TC';stroke-width:0.264583px"
+         x="33.330372"
+         y="94.579071"
+         id="tspan19657">and right turn circle</tspan></text>
+  </g>
+</svg>

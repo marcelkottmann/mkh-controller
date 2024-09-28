@@ -1,30 +1,15 @@
-import { MKH40Controller, Motor } from "./controller";
+import { Direction, MKH40Controller, Motor } from "./controller";
 import { initializeMKHController } from "./start";
+import { delay } from "./util";
 
 export async function start(controller: MKH40Controller) {
-  await controller.driveMotorToPosition(
-    {
-      speed: 0x7fff / 3,
-      position: 0,
-    },
-    {
-      speed: 0,
-      position: 0,
-    }
-  );
-  console.log("nullpositin");
-
-  await controller.driveMotorToPosition(
-    {
-      speed: 0x7fff / 3,
-      position: -314,
-    },
-    {
-      speed: 0,
-      position: 0,
-    }
-  );
-  console.log("done");
+  await delay(1000);
+  await controller.resetMotorPosition(Motor.A, Motor.B, Motor.C, Motor.D);
+  await delay(1000);
+  await controller.driveMotorToPosition([
+    { motor: Motor.A, target: { position: -150 * 10000, speed: 0x7fff / 4 } },
+    { motor: Motor.C, target: { position: 150 * 10000, speed: 0x7fff / 8 } },
+  ]);
 }
 
 initializeMKHController(start);

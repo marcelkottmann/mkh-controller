@@ -1,4 +1,4 @@
-import noble from "@abandonware/noble";
+import noble from "@stoprocent/noble";
 import { ConnectState, DataListener } from "./start";
 import { sendMessage } from "./communication";
 import { bitmask, delay, hex } from "./util";
@@ -7,12 +7,12 @@ import { lock } from "./lock";
 const STEP_FACTOR = 10000;
 export const MAX_SPEED = 0x7fff;
 
-export interface MotorSpeedAndPosition {
+export interface MotorDrivePositionOptions {
   motor: Motor;
-  target: SpeedAndPosition;
+  target: DrivePositionOptions;
 }
 
-export interface SpeedAndPosition {
+export interface DrivePositionOptions {
   speed: number;
   position: number;
 }
@@ -32,28 +32,37 @@ export enum Motor {
 export async function createController(
   characteristic: noble.Characteristic,
   connectState: ConnectState,
-  registerDataListener: (listener: DataListener) => void
+  registerDataListener: (listener: DataListener) => void,
+  options?: MKH40ControllerOptions
 ): Promise<MKH40Controller> {
   await sendMessage(characteristic, "T041AABBW");
   await sendMessage(characteristic, "T00EW");
   await sendMessage(characteristic, "T01F1W");
 
-  // const backgroundJob = async () => {
-  //   while (connectState.connected) {
-  //     await sendMessage(characteristic, "T00CW");
-  //     await delay(2000);
-  //   }
-  // };
-  // backgroundJob();
+  const backgroundJob = async () => {
+    while (connectState.connected) {
+      await sendMessage(characteristic, "T00CW");
+      await delay(2000);
+    }
+  };
+  backgroundJob();
 
-  return new MKH40Controller(characteristic, registerDataListener);
+  return new MKH40Controller(characteristic, registerDataListener, options);
 }
 
-interface SpeedAndDirection {
+interface DriveOptions {
   speed: number;
   direction: Direction;
+  limit: boolean;
 }
 
+interface MotorDriveOptions extends DriveOptions {
+  motor: Motor;
+}
+
+export interface MKH40ControllerOptions {
+  log: boolean;
+}
 export class MKH40Controller {
   private listeners: {
     message: string;
@@ -64,7 +73,8 @@ export class MKH40Controller {
 
   constructor(
     private characteristic: noble.Characteristic,
-    registerDataListener: (listener: DataListener) => void
+    registerDataListener: (listener: DataListener) => void,
+    private options: MKH40ControllerOptions = { log: true }
   ) {
     registerDataListener((data, isNotification) => {
       const received = data.toString("ascii");
@@ -75,7 +85,9 @@ export class MKH40Controller {
         .map((m) => m + "W");
 
       for (const message of messages) {
-        console.log(`notification:${isNotification} => ${message}`);
+        if (options.log) {
+          console.log(`notification:${isNotification} => ${message}`);
+        }
 
         let found = false;
         for (let i = this.listeners.length - 1; i >= 0; i--) {
@@ -86,15 +98,16 @@ export class MKH40Controller {
             listener.callback(message);
           }
         }
-        if (!found) {
+        if (options.log && !found) {
           console.log(`=> No listener found for message ${message}.`);
         }
+        return sendMessage(this.characteristic, [1], this.options);
       }
     });
 
     // wait for "ready" notification
     this.ready = new Promise((resolve) => {
-      this.addListener("T01711W", () => resolve());
+      this.addListener("T", () => resolve());
     });
   }
 
@@ -106,25 +119,39 @@ export class MKH40Controller {
   }
 
   public stopAll() {
-    return sendMessage(this.characteristic, "T14400000000000000000000W");
-  }
-
-  public async startMotor(
-    motorA: SpeedAndDirection,
-    motorB: SpeedAndDirection = { speed: 0, direction: Direction.Right },
-    motorC: SpeedAndDirection = { speed: 0, direction: Direction.Right },
-    motorD: SpeedAndDirection = { speed: 0, direction: Direction.Right }
-  ) {
-    await this.ready;
     return sendMessage(
       this.characteristic,
-      `T1440${this.writeSpeedAndDirectionToMessage(
+      "T14400000000000000000000W",
+      this.options
+    );
+  }
+
+  private getDriveOptions(
+    motor: Motor,
+    motorDriveOptions: MotorDriveOptions[]
+  ): DriveOptions {
+    const found = motorDriveOptions.find((s) => s.motor === motor);
+    return found || { direction: Direction.Right, speed: 0, limit: false };
+  }
+
+  public async driveMotor(motorDriveOptions: MotorDriveOptions[]) {
+    await this.ready;
+
+    const motorA = this.getDriveOptions(Motor.A, motorDriveOptions);
+    const motorB = this.getDriveOptions(Motor.B, motorDriveOptions);
+    const motorC = this.getDriveOptions(Motor.C, motorDriveOptions);
+    const motorD = this.getDriveOptions(Motor.D, motorDriveOptions);
+
+    return sendMessage(
+      this.characteristic,
+      `T144${this.writeDriveOptionsToMessage(
         motorA
-      )}0${this.writeSpeedAndDirectionToMessage(
+      )}${this.writeDriveOptionsToMessage(
         motorB
-      )}0${this.writeSpeedAndDirectionToMessage(
+      )}${this.writeDriveOptionsToMessage(
         motorC
-      )}0${this.writeSpeedAndDirectionToMessage(motorD)}W`
+      )}${this.writeDriveOptionsToMessage(motorD)}W`,
+      this.options
     );
   }
 
@@ -144,10 +171,10 @@ export class MKH40Controller {
       negativeLimit,
       8
     )}W`;
-    return sendMessage(this.characteristic, message);
+    return sendMessage(this.characteristic, message, this.options);
   }
 
-  private validateSpeedAndDirection(motor: SpeedAndDirection) {
+  private validateSpeedAndDirection(motor: DriveOptions) {
     if (motor.speed < 0) {
       throw Error(`Speed must not be a negative value: ${motor.speed}`);
     }
@@ -157,7 +184,7 @@ export class MKH40Controller {
     }
   }
 
-  private writeSpeedAndDirectionToMessage(motor: SpeedAndDirection) {
+  private writeDriveOptionsToMessage(motor: DriveOptions) {
     this.validateSpeedAndDirection(motor);
 
     let speed = Math.round(motor.speed);
@@ -166,10 +193,10 @@ export class MKH40Controller {
       speed += 0x8000;
     }
 
-    return hex(speed, 4);
+    return motor.limit ? "1" : "0" + hex(speed, 4);
   }
 
-  private validateSpeedAndPosition(motor: SpeedAndPosition) {
+  private validateSpeedAndPosition(motor: DrivePositionOptions) {
     if (motor.speed < 0) {
       throw Error(`Speed must not be a negative value: ${motor.speed}`);
     }
@@ -179,7 +206,7 @@ export class MKH40Controller {
     }
   }
 
-  private writeSpeedAndPositionToMessage(target: SpeedAndPosition) {
+  private writeDrivePositionOptionsToMessage(target: DrivePositionOptions) {
     this.validateSpeedAndPosition(target);
 
     const targetPosition = Math.round(target.position * STEP_FACTOR);
@@ -192,12 +219,12 @@ export class MKH40Controller {
     return hex(speed, 4) + hex(Math.abs(targetPosition), 8);
   }
 
-  private getTarget(
+  private getDrivePositionOptions(
     motor: Motor,
-    targets: MotorSpeedAndPosition[]
-  ): SpeedAndPosition {
+    motorDrivePositionOptions: MotorDrivePositionOptions[]
+  ): DrivePositionOptions {
     return (
-      targets.find((t) => t.motor === motor)?.target || {
+      motorDrivePositionOptions.find((t) => t.motor === motor)?.target || {
         position: 0,
         speed: 0,
       }
@@ -205,30 +232,42 @@ export class MKH40Controller {
   }
 
   public async driveMotorToPosition(
-    targets: MotorSpeedAndPosition[],
-    options= { pollForMotorToReachPosition: false }
+    motorDrivePositionOptions: MotorDrivePositionOptions[],
+    options = { pollForMotorToReachPosition: false }
   ): Promise<void> {
     await this.ready;
 
-    const motorA = this.getTarget(Motor.A, targets);
-    const motorB = this.getTarget(Motor.B, targets);
-    const motorC = this.getTarget(Motor.C, targets);
-    const motorD = this.getTarget(Motor.D, targets);
+    const motorA = this.getDrivePositionOptions(
+      Motor.A,
+      motorDrivePositionOptions
+    );
+    const motorB = this.getDrivePositionOptions(
+      Motor.B,
+      motorDrivePositionOptions
+    );
+    const motorC = this.getDrivePositionOptions(
+      Motor.C,
+      motorDrivePositionOptions
+    );
+    const motorD = this.getDrivePositionOptions(
+      Motor.D,
+      motorDrivePositionOptions
+    );
 
     await lock.acquire(`drive`, async () => {
-      const message = `T303${this.writeSpeedAndPositionToMessage(
+      const message = `T303${this.writeDrivePositionOptionsToMessage(
         motorA
-      )}${this.writeSpeedAndPositionToMessage(
+      )}${this.writeDrivePositionOptionsToMessage(
         motorB
-      )}${this.writeSpeedAndPositionToMessage(
+      )}${this.writeDrivePositionOptionsToMessage(
         motorC
-      )}${this.writeSpeedAndPositionToMessage(motorD)}W`;
+      )}${this.writeDrivePositionOptionsToMessage(motorD)}W`;
 
       const ret: Promise<void> = new Promise((resolve) => {
         this.addListener("T027300W", () => resolve());
       });
 
-      await sendMessage(this.characteristic, message);
+      await sendMessage(this.characteristic, message, this.options);
       await ret;
 
       if (options.pollForMotorToReachPosition) {
@@ -243,7 +282,7 @@ export class MKH40Controller {
   }
 
   private async pollForMotorToReachPosition(
-    expected: { motor: Motor; sp: SpeedAndPosition }[]
+    expected: { motor: Motor; sp: DrivePositionOptions }[]
   ) {
     expected = expected.filter((e) => e.sp.speed > 0);
     do {
@@ -268,7 +307,11 @@ export class MKH40Controller {
 
     return Promise.all(
       motor.map((m) =>
-        sendMessage(this.characteristic, `T028${bitmask([m], 2)}W`)
+        sendMessage(
+          this.characteristic,
+          `T028${bitmask([m], 2)}W`,
+          this.options
+        )
       )
     );
   }
@@ -292,7 +335,11 @@ export class MKH40Controller {
             })
         );
 
-        await sendMessage(this.characteristic, `T02A${bitmask(motors, 2)}W`);
+        await sendMessage(
+          this.characteristic,
+          `T02A${bitmask(motors, 2)}W`,
+          this.options
+        );
         return Promise.all(ret);
       }
     );

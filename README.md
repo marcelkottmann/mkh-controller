@@ -38,7 +38,7 @@ Message: `T00CW`
 Received notifications:
 
 `T027C0XW` where X is the motor bitmask represented as a single hex digit. In the
-bitmask a ` 1`` represents a not connected motor port and  `0` represents a connected
+bitmask a `1` represents a not connected motor port and  `0` represents a connected
 port.
 
 Examples:
@@ -177,7 +177,7 @@ Todo.
 ## MKH4.0 Initialization
 
 These messages are sent during initialization.
-It is currently why they are sent and if this is required.
+It is currently unclear why they are sent and if this is required.
 
 - `T041AABBW`
 - `T00EW`

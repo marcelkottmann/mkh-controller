@@ -1,6 +1,10 @@
-import noble from "@abandonware/noble";
-import { start } from "./test-mould-king";
-import { MKH40Controller, createController } from "./controller";
+import noble from "@stoprocent/noble";
+
+import {
+  MKH40Controller,
+  MKH40ControllerOptions,
+  createController,
+} from "./controller";
 
 const MOULD_KING_HUB_SCAN_SERVICE_UUID = "af30";
 const MOULD_KING_HUB_SERVICE_UUID = "ae3a";
@@ -14,7 +18,8 @@ export interface ConnectState {
 export type DataListener = (data: Buffer, isNotification: boolean) => void;
 
 export function initializeMKHController(
-  callback: (controller: MKH40Controller) => Promise<void>
+  callback: (controller: MKH40Controller) => Promise<void>,
+  options?: MKH40ControllerOptions
 ) {
   function startScanning() {
     console.log(`start scanning ...`);
@@ -22,6 +27,7 @@ export function initializeMKHController(
   }
 
   noble.on("stateChange", (state) => {
+    console.log(state);
     if (state === "poweredOn") {
       startScanning();
     }
@@ -68,7 +74,8 @@ export function initializeMKHController(
       const controller = await createController(
         writeTarget,
         connectState,
-        register
+        register,
+        options
       );
       await callback(controller);
     } else {
